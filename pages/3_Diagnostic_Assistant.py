@@ -15,9 +15,9 @@ from google.api_core import exceptions as google_exceptions
 
 # --- LlamaIndex Imports ---
 import llama_index
-from llama_index.core import VectorStoreIndex, StorageContext, load_index_from_storage
+from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.vector_stores.faiss import FaissVectorStore
-from llama_index.embeddings.google import GoogleGenaiEmbedding
+from llama_index.embeddings.google import GooglePairedEmbeddings
 from llama_index.core.tools import QueryEngineTool
 from llama_index.core.query_engine import RouterQueryEngine
 from llama_index.core.selectors import LLMSingleSelector
@@ -33,7 +33,7 @@ ALL_FIRMWARES = PREDEFINED_FIRMWARES + ['Other']
 INDEX_ROOT_DIR = "./storage"
 SUMMARIES_FILE = os.path.join(INDEX_ROOT_DIR, "summaries.json")
 EMBEDDING_MODEL = 'models/text-embedding-004'
-GENERATION_MODEL = 'gemini-2.5-pro'
+GENERATION_MODEL = 'gemini-1.5-pro-latest'
 
 # --- Page Configuration ---
 st.set_page_config(page_title="Diagnostic Assistant", layout="wide")
@@ -42,7 +42,7 @@ st.markdown("Ask a technical question about your tune, logs, or general ECU conc
 
 # --- RAG Data Loading ---
 @st.cache_resource(show_spinner="Loading knowledge base...")
-def load_hierarchical_index_data(api_key: str):
+def load_hierarchical_index_data():
     """
     Loads all sub-indexes and the chapter summaries from disk.
     This is cached to be fast on subsequent runs.
@@ -52,8 +52,6 @@ def load_hierarchical_index_data(api_key: str):
         return None, None
 
     try:
-        embed_model = GoogleGenaiEmbedding(model_name=EMBEDDING_MODEL, api_key=api_key)
-        llama_index.core.Settings.embed_model = embed_model
         # Load the summaries
         with open(SUMMARIES_FILE, "r") as f:
             summaries = json.load(f)
@@ -62,8 +60,9 @@ def load_hierarchical_index_data(api_key: str):
         sub_indexes = {}
         for chapter_id in summaries.keys():
             index_dir = os.path.join(INDEX_ROOT_DIR, f"index_{chapter_id}")
-            storage_context = StorageContext.from_defaults(persist_dir=index_dir)
-            sub_indexes[chapter_id] = load_index_from_storage(storage_context)
+            vector_store = FaissVectorStore.from_persist_dir(index_dir)
+            storage_context = StorageContext.from_defaults(vector_store=vector_store, persist_dir=index_dir)
+            sub_indexes[chapter_id] = VectorStoreIndex.from_storage(storage_context)
 
         return sub_indexes, summaries
     except Exception as e:
@@ -71,7 +70,6 @@ def load_hierarchical_index_data(api_key: str):
         return None, None
 
 # --- Tool Functions (Unchanged) ---
-# ... (get_tune_data, list_available_maps_tool, _get_xdf_content, render_thinking_process remain the same)
 def get_tune_data(map_description: str) -> str:
     if 'bin_content' not in st.session_state: return "Error: User has not uploaded a .bin file."
     xdf_content = _get_xdf_content()
@@ -114,7 +112,6 @@ def render_thinking_process(history):
     # This function remains the same
 
 # --- UI Layout ---
-# ... (UI layout remains the same)
 with st.sidebar:
     st.divider()
     st.subheader("💡 Assistant API Key")
@@ -136,42 +133,22 @@ with st.sidebar:
 if 'diag_chat_history' not in st.session_state: st.session_state.diag_chat_history = []
 if 'diag_chat' not in st.session_state: st.session_state.diag_chat = None
 
-# --- FIX 1: Corrected logic for loading data and managing UI state ---
-# This is the single, correct place to load the index data.
-sub_indexes, summaries = None, None
-api_key = st.session_state.get('google_api_key')
-
-if api_key:
-    sub_indexes, summaries = load_hierarchical_index_data(api_key)
-else:
-    st.info("Please enter your Google API Key in the sidebar to load the Diagnostic Assistant.")
-
-# --- FIX 2: Re-introduce the disabled state for a better user experience ---
-is_disabled = not (sub_indexes and summaries)
-
 st.subheader("1. Upload Tune & Log Files")
-uploaded_bin_file = st.file_uploader(
-    "Upload .bin tune file", type=['bin', 'all'], key="uploaded_bin_file_assistant", disabled=is_disabled
-)
+uploaded_bin_file = st.file_uploader("Upload .bin tune file", type=['bin', 'all'], key="uploaded_bin_file_assistant")
 if uploaded_bin_file: st.session_state.bin_content = uploaded_bin_file.getvalue()
 
-if st.session_state.get('firmware') == 'Other':
+if firmware == 'Other':
     st.info("Please provide an XDF file for 'Other' firmware.")
-    uploaded_xdf_file = st.file_uploader(
-        "Upload .xdf definition file", type=['xdf'], key="uploaded_xdf_file_assistant_other", disabled=is_disabled
-    )
+    uploaded_xdf_file = st.file_uploader("Upload .xdf definition file", type=['xdf'], key="uploaded_xdf_file_assistant")
     if uploaded_xdf_file: st.session_state.xdf_content = uploaded_xdf_file.getvalue()
 
 st.subheader("2. Ask Your Question")
-user_query = st.text_input(
-    "Enter your diagnostic question:", placeholder="e.g., What does 'combmodes_MAF' control?", key="rag_query", disabled=is_disabled
-)
-uploaded_diag_log = st.file_uploader(
-    "Upload a CSV data log (Optional)", type="csv", key="diag_log", disabled=is_disabled
-)
+user_query = st.text_input("Enter your diagnostic question:", placeholder="e.g., What does 'combmodes_MAF' control?", key="rag_query")
+uploaded_diag_log = st.file_uploader("Upload a CSV data log (Optional)", type="csv", key="diag_log")
 
-# The second, duplicated block of code that was here has been removed.
-# --- END FIXES ---
+# --- Load Base Index Data ---
+sub_indexes, summaries = load_hierarchical_index_data()
+
 # --- Main Logic Block ---
 if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width=True):
     # --- Input Validation ---
@@ -186,6 +163,8 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 # --- Step 1: Configure API-dependent components ---
                 status.update(label="Initializing models and query engine...")
                 genai.configure(api_key=api_key)
+                embed_model = GooglePairedEmbeddings(model_name=EMBEDDING_MODEL, api_key=api_key, query_task_type="retrieval_query", doc_task_type="retrieval_document")
+                llama_index.core.Settings.embed_model = embed_model
 
                 # --- Build the RouterQueryEngine ---
                 query_engine_tools = []
@@ -206,14 +185,16 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 model = genai.GenerativeModel(GENERATION_MODEL, tools=[get_tune_data, list_available_maps_tool])
 
                 # --- Step 2: Process Logs and Retrieve Context ---
-                log_data_str = "" # ... (log processing remains the same)
+                log_data_str = ""
+                if uploaded_diag_log:
+                    log_df = pd.read_csv(uploaded_diag_log, encoding='latin1')
+                    log_data_str = f'--- **USER-UPLOADED LOG FILE DATA:**\n{log_df.to_string()}\n---'
 
                 status.update(label="Routing query and retrieving context from knowledge base...")
                 response_from_rag = query_engine.query(user_query)
                 context_str = "\n\n".join([f"Source: {node.metadata.get('source_filename', 'N/A')} | Chapter: {node.metadata.get('chapter', 'N/A')}\nContent: {node.get_content()}" for node in response_from_rag.source_nodes])
 
                 # --- Step 3: Run Chat ---
-                # ... (chat logic remains the same)
                 if st.session_state.diag_chat is None:
                     st.session_state.diag_chat = model.start_chat(enable_automatic_function_calling=True)
                     st.session_state.diag_chat_history = []
@@ -222,7 +203,6 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 initial_prompt = f'''
                 You are an expert automotive systems engineer and a master diagnostician for ECUs.
                 Your primary goal is to provide a comprehensive and accurate answer to the user's question by acting as a detective.
-
                 **Your Process:**
                 1.  **Analyze the user's question and the provided documentation and log file data (CONTEXT) to form an initial hypothesis.**
                 2.  **If you need to look up a map from the tune file, you MUST use a two-step process:**
@@ -231,11 +211,9 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                     c. **Finally, call the `get_tune_data()` tool** with the precise `map_description`.
                 3.  **Synthesize all the evidence.** Your final answer MUST be a synthesis of information from the documentation, the log data, and the tune data.
                 4.  **Formulate your final answer ONLY when you are confident you have a complete picture.**
-
                 **Available Tools:**
                 - `list_available_maps_tool()`: Returns a dictionary mapping map titles to their full descriptions.
                 - `get_tune_data(map_description: str)`: Use this to look up a specific map.
-
                 ---
                 **CONTEXT FROM DOCUMENTATION:**
                 {context_str}
