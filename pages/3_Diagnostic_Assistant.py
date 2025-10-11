@@ -17,7 +17,7 @@ from google.api_core import exceptions as google_exceptions
 import llama_index
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.vector_stores.faiss import FaissVectorStore
-from llama_index.embeddings.google import GooglePairedEmbeddings
+from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
 from llama_index.core.tools import QueryEngineTool
 from llama_index.core.query_engine import RouterQueryEngine
 from llama_index.core.selectors import LLMSingleSelector
@@ -163,7 +163,7 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 # --- Step 1: Configure API-dependent components ---
                 status.update(label="Initializing models and query engine...")
                 genai.configure(api_key=api_key)
-                embed_model = GooglePairedEmbeddings(model_name=EMBEDDING_MODEL, api_key=api_key, query_task_type="retrieval_query", doc_task_type="retrieval_document")
+                embed_model = GoogleGenAIEmbedding(model_name="models/text-embedding-004")
                 llama_index.core.Settings.embed_model = embed_model
 
                 # --- Build the RouterQueryEngine ---

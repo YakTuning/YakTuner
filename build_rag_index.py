@@ -7,7 +7,7 @@ from collections import defaultdict
 
 import llama_index
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext, Document
-from llama_index.embeddings.google import GooglePairedEmbeddings
+from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
 from llama_index.vector_stores.faiss import FaissVectorStore
 from trafilatura import fetch_url, extract
 
@@ -68,10 +68,7 @@ def build_and_save_hierarchical_index():
 
     # Initialize models
     summary_model = genai.GenerativeModel(GENERATION_MODEL)
-    embed_model = GooglePairedEmbeddings(
-        model_name=EMBEDDING_MODEL, api_key=api_key,
-        query_task_type="retrieval_query", doc_task_type="retrieval_document"
-    )
+    embed_model = GoogleGenAIEmbedding(model_name="models/text-embedding-004")
     llama_index.core.Settings.embed_model = embed_model
     llama_index.core.Settings.chunk_size = 1024
     llama_index.core.Settings.chunk_overlap = 100
