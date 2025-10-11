@@ -1,12 +1,13 @@
 import os
 import json
+import re
 import google.generativeai as genai
 from dotenv import load_dotenv
 from collections import defaultdict
-
+import faiss
 import llama_index
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext, Document
-from llama_index.embeddings.google import GooglePairedEmbeddings
+from llama_index.embeddings.google import GoogleGenaiEmbedding
 from llama_index.vector_stores.faiss import FaissVectorStore
 from trafilatura import fetch_url, extract
 
@@ -16,7 +17,7 @@ TXT_PATH = "Combined_Descriptions"
 INDEX_ROOT_DIR = "./storage"  # Main directory to store all sub-indexes
 SUMMARIES_FILE = os.path.join(INDEX_ROOT_DIR, "summaries.json")
 EMBEDDING_MODEL = 'models/text-embedding-004'
-GENERATION_MODEL = 'gemini-1.5-pro-latest' # For generating summaries
+GENERATION_MODEL = 'gemini-2.5-pro' # For generating summaries
 
 URLS_TO_ADD = [
     "https://cobbtuning.atlassian.net/wiki/spaces/PRS/pages/143753246/Volkswagen+MQB+Tuning+Guide",
@@ -67,9 +68,8 @@ def build_and_save_hierarchical_index():
 
     # Initialize models
     summary_model = genai.GenerativeModel(GENERATION_MODEL)
-    embed_model = GooglePairedEmbeddings(
-        model_name=EMBEDDING_MODEL, api_key=api_key,
-        query_task_type="retrieval_query", doc_task_type="retrieval_document"
+    embed_model = GoogleGenaiEmbedding(
+        model_name=EMBEDDING_MODEL, api_key=api_key
     )
     llama_index.core.Settings.embed_model = embed_model
     llama_index.core.Settings.chunk_size = 1024
@@ -118,7 +118,8 @@ def build_and_save_hierarchical_index():
         # Create and persist a specific index for this chapter
         print("     - Building vector index...")
         chapter_index_dir = os.path.join(INDEX_ROOT_DIR, f"index_{chapter}")
-        vector_store = FaissVectorStore.from_defaults()
+        faiss_index = faiss.IndexFlatL2(embed_model.embed_dim)
+        vector_store = FaissVectorStore(faiss_index=faiss_index)
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
         index = VectorStoreIndex.from_documents(docs, storage_context=storage_context, show_progress=True)
         index.storage_context.persist(persist_dir=chapter_index_dir)
@@ -146,7 +147,8 @@ def build_and_save_hierarchical_index():
             # Create and persist a specific index for this web page
             print("     - Building vector index...")
             web_index_dir = os.path.join(INDEX_ROOT_DIR, f"index_{url_key}")
-            vector_store = FaissVectorStore.from_defaults()
+            faiss_index = faiss.IndexFlatL2(embed_model.embed_dim)
+            vector_store = FaissVectorStore(faiss_index=faiss_index)
             storage_context = StorageContext.from_defaults(vector_store=vector_store)
             index = VectorStoreIndex.from_documents([doc], storage_context=storage_context, show_progress=True)
             index.storage_context.persist(persist_dir=web_index_dir)
