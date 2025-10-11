@@ -33,7 +33,7 @@ ALL_FIRMWARES = PREDEFINED_FIRMWARES + ['Other']
 INDEX_ROOT_DIR = "./storage"
 SUMMARIES_FILE = os.path.join(INDEX_ROOT_DIR, "summaries.json")
 EMBEDDING_MODEL = 'models/text-embedding-004'
-GENERATION_MODEL = 'gemini-1.5-pro-latest'
+GENERATION_MODEL = 'gemini-2.5-pro'
 
 # --- Page Configuration ---
 st.set_page_config(page_title="Diagnostic Assistant", layout="wide")

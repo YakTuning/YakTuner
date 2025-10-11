@@ -17,7 +17,7 @@ TXT_PATH = "Combined_Descriptions"
 INDEX_ROOT_DIR = "./storage"  # Main directory to store all sub-indexes
 SUMMARIES_FILE = os.path.join(INDEX_ROOT_DIR, "summaries.json")
 EMBEDDING_MODEL = 'models/text-embedding-004'
-GENERATION_MODEL = 'gemini-1.5-pro-latest' # For generating summaries
+GENERATION_MODEL = 'gemini-2.5-pro' # For generating summaries
 
 URLS_TO_ADD = [
     "https://cobbtuning.atlassian.net/wiki/spaces/PRS/pages/143753246/Volkswagen+MQB+Tuning+Guide",
