@@ -4,6 +4,7 @@ import re
 import google.generativeai as genai
 from dotenv import load_dotenv
 from collections import defaultdict
+import faiss
 
 import llama_index
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext, Document
@@ -102,21 +103,22 @@ def build_and_save_hierarchical_index():
     # --- 3. Process and Index Each Chapter ---
     chapter_summaries = {}
     print("\n--- Generating Summaries and Building Sub-Indexes for Chapters ---")
+    # Get embedding dimension from the model
+    embedding_dim = len(embed_model.get_text_embedding("test"))
+
     for chapter, docs in grouped_docs.items():
         print(f"  -> Processing Chapter: {chapter}")
 
-        # Combine text for summary
         full_text = "\n\n".join([doc.get_content() for doc in docs])
-
-        # Generate summary
         print("     - Generating AI summary...")
         summary = generate_summary(full_text, summary_model)
         chapter_summaries[chapter] = summary
 
-        # Create and persist a specific index for this chapter
         print("     - Building vector index...")
         chapter_index_dir = os.path.join(INDEX_ROOT_DIR, f"index_{chapter}")
-        vector_store = FaissVectorStore.from_defaults()
+        # Initialize FAISS index and VectorStore
+        faiss_index = faiss.IndexFlatL2(embedding_dim)
+        vector_store = FaissVectorStore(faiss_index=faiss_index)
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
         index = VectorStoreIndex.from_documents(docs, storage_context=storage_context, show_progress=True)
         index.storage_context.persist(persist_dir=chapter_index_dir)
@@ -135,16 +137,16 @@ def build_and_save_hierarchical_index():
 
             doc = Document(text=main_content, metadata={"source_url": url, "document_type": "Web Page"})
 
-            # Generate summary for the web page
             print("     - Generating AI summary...")
-            url_key = f"web_{os.path.basename(url)}" # Create a simple key from URL
+            url_key = f"web_{os.path.basename(url)}"
             summary = generate_summary(main_content, summary_model)
             chapter_summaries[url_key] = summary
 
-            # Create and persist a specific index for this web page
             print("     - Building vector index...")
             web_index_dir = os.path.join(INDEX_ROOT_DIR, f"index_{url_key}")
-            vector_store = FaissVectorStore.from_defaults()
+            # Initialize FAISS index and VectorStore
+            faiss_index = faiss.IndexFlatL2(embedding_dim)
+            vector_store = FaissVectorStore(faiss_index=faiss_index)
             storage_context = StorageContext.from_defaults(vector_store=vector_store)
             index = VectorStoreIndex.from_documents([doc], storage_context=storage_context, show_progress=True)
             index.storage_context.persist(persist_dir=web_index_dir)
