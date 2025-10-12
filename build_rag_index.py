@@ -23,6 +23,10 @@ GENERATION_MODEL = 'gemini-2.5-pro'
 URLS_TO_ADD = [
     "https://cobbtuning.atlassian.net/wiki/spaces/PRS/pages/143753246/Volkswagen+MQB+Tuning+Guide",
     "https://cobbtuning.atlassian.net/wiki/spaces/PRS/pages/725221419/VW+Reference+Torque+Set+Point+Calculations",
+    "https://ecutek.atlassian.net/wiki/spaces/SUPPORT/pages/21430325/VW+AG+EA888+Engine+Tuning",
+    "https://ecutek.atlassian.net/wiki/spaces/SUPPORT/pages/378765322/EA888+Multi-Port+Injection",
+    "https://ecutek.atlassian.net/wiki/spaces/SUPPORT/pages/607420417/EA888+Low+Pressure+Fuel+Pump+LPFP+Control",
+    "https://ecutek.atlassian.net/wiki/spaces/SUPPORT/pages/1796866149/VW+EA888+Combustion+Modes+Configuring+MPI",
 ]
 
 # --- Helper Functions ---
@@ -100,19 +104,30 @@ def build_and_save_hierarchical_index():
         # Sanitize the filename that gets stored in metadata
         return {"chapter": chapter, "document_type": doc_type, "source_filename": sanitize_text(file_name)}
 
-    # Load data and immediately sanitize the content of each document
+    # --- FIX: Added status updates for each step ---
     # Load PDF docs with the default reader
+    print("  -> Loading PDF documents from 'Split_Chapters'...")
     pdf_docs = SimpleDirectoryReader(PDF_PATH, file_metadata=get_file_metadata).load_data()
+    print(f"     - Loaded {len(pdf_docs)} PDF documents.")
+
     # Load TXT docs, specifying latin-1 encoding to handle special characters
+    print("  -> Loading TXT documents from 'Combined_Descriptions'...")
     txt_docs = SimpleDirectoryReader(TXT_PATH, file_metadata=get_file_metadata, encoding="latin-1").load_data()
+    print(f"     - Loaded {len(txt_docs)} TXT documents.")
 
     local_documents = pdf_docs + txt_docs
+
+    print("  -> Sanitizing content of all loaded documents...")
     for doc in local_documents:
         doc.set_content(sanitize_text(doc.get_content()))
+    print("     - Sanitization complete.")
 
+    print("  -> Grouping documents by chapter...")
     grouped_docs = defaultdict(list)
     for doc in local_documents:
         grouped_docs[doc.metadata['chapter']].append(doc)
+    print("     - Grouping complete.")
+    # --- END FIX ---
 
     print(f"Found {len(local_documents)} documents, grouped into {len(grouped_docs)} chapters.")
 
