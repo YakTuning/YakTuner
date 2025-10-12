@@ -17,6 +17,7 @@ from google.api_core import exceptions as google_exceptions
 import llama_index
 from llama_index.core import VectorStoreIndex, StorageContext, load_index_from_storage
 from llama_index.vector_stores.faiss import FaissVectorStore
+from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
 from llama_index.core.tools import QueryEngineTool
 from llama_index.core.query_engine import RouterQueryEngine
@@ -41,31 +42,71 @@ st.title("💡 Diagnostic Assistant")
 st.markdown("Ask a technical question about your tune, logs, or general ECU concepts. The assistant can use your uploaded `.bin` tune file for context.")
 
 # --- RAG Data Loading ---
-@st.cache_resource(show_spinner="Loading knowledge base...")
+@st.cache_resource(show_spinner="Loading and verifying knowledge base...")
 def load_hierarchical_index_data():
     """
-    Loads all sub-indexes and the chapter summaries from disk.
-    This is cached to be fast on subsequent runs.
+    Loads all sub-indexes and summaries, with detailed debugging to find encoding errors.
     """
     if not os.path.exists(INDEX_ROOT_DIR) or not os.path.exists(SUMMARIES_FILE):
         st.warning(f"Knowledge base not found. Please run `build_rag_index.py` first.")
         return None, None
 
+    # --- DETAILED DEBUGGING BLOCK ---
+    st.info("Starting detailed verification of all index files...")
+    # 1. Verify summaries.json
     try:
-        # Load the summaries
+        with open(SUMMARIES_FILE, "r", encoding="utf-8") as f:
+            json.load(f)
+        st.success(f"✅ Verified: {SUMMARIES_FILE}")
+    except Exception as e:
+        st.error(f"🔴 FAILED TO LOAD: {SUMMARIES_FILE}")
+        st.error(f"   ERROR: {e}")
+        return None, None
+
+    # 2. Verify every JSON file in each sub-index directory
+    all_verified = True
+    sub_index_dirs = [d for d in os.listdir(INDEX_ROOT_DIR) if os.path.isdir(os.path.join(INDEX_ROOT_DIR, d))]
+
+    for index_dir_name in sub_index_dirs:
+        index_path = os.path.join(INDEX_ROOT_DIR, index_dir_name)
+        # --- CORRECTED FILENAMES TO CHECK ---
+        json_files_to_check = ["docstore.json", "index_store.json", "graph_store.json", "default__vector_store.json"]
+        for fname in json_files_to_check:
+            file_path = os.path.join(index_path, fname)
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        json.load(f)
+                    st.success(f"✅ Verified: {file_path}")
+                except Exception as e:
+                    st.error(f"🔴 FAILED TO LOAD: {file_path}")
+                    st.error(f"   ERROR: {e}")
+                    st.error("This is the corrupted file. The build script failed to write valid UTF-8 metadata or content here.")
+                    all_verified = False
+                    break # Stop checking this directory
+        if not all_verified:
+            break # Stop checking other directories
+
+    if not all_verified:
+        return None, None
+    st.success("All index files verified successfully. Now loading into memory...")
+    # --- END DETAILED DEBUGGING BLOCK ---
+
+    # If verification passes, proceed with the original loading logic.
+    try:
         with open(SUMMARIES_FILE, "r", encoding="utf-8") as f:
             summaries = json.load(f)
 
-        # Load each sub-index
         sub_indexes = {}
         for chapter_id in summaries.keys():
             index_dir = os.path.join(INDEX_ROOT_DIR, f"index_{chapter_id}")
             storage_context = StorageContext.from_defaults(persist_dir=index_dir)
             sub_indexes[chapter_id] = load_index_from_storage(storage_context)
 
+        st.success("Knowledge base loaded successfully.")
         return sub_indexes, summaries
     except Exception as e:
-        st.error(f"Error loading hierarchical index: {e}")
+        st.error(f"An unexpected error occurred during the final load: {e}")
         return None, None
 
 # --- Tool Functions (Unchanged) ---
@@ -159,7 +200,10 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 status.update(label="Initializing models and loading knowledge base...")
                 genai.configure(api_key=api_key)
                 embed_model = GoogleGenAIEmbedding(model_name="models/text-embedding-004", api_key=api_key)
+                genai.configure(api_key=api_key)
+                embed_model = GoogleGenAIEmbedding(model_name="models/text-embedding-004", api_key=api_key)
                 llama_index.core.Settings.embed_model = embed_model
+                llama_index.core.Settings.llm = GoogleGenAI(model_name=f"models/{GENERATION_MODEL}", api_key=api_key)
 
                 # --- Step 2: Load the index AFTER model configuration ---
                 sub_indexes, summaries = load_hierarchical_index_data()
