@@ -15,7 +15,7 @@ from google.api_core import exceptions as google_exceptions
 
 # --- LlamaIndex Imports ---
 import llama_index
-from llama_index.core import VectorStoreIndex, StorageContext
+from llama_index.core import VectorStoreIndex, StorageContext, load_index_from_storage
 from llama_index.vector_stores.faiss import FaissVectorStore
 from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
 from llama_index.core.tools import QueryEngineTool
@@ -62,7 +62,7 @@ def load_hierarchical_index_data():
             index_dir = os.path.join(INDEX_ROOT_DIR, f"index_{chapter_id}")
             vector_store = FaissVectorStore.from_persist_dir(index_dir)
             storage_context = StorageContext.from_defaults(vector_store=vector_store, persist_dir=index_dir)
-            sub_indexes[chapter_id] = VectorStoreIndex.from_storage(storage_context)
+            sub_indexes[chapter_id] = load_index_from_storage(storage_context)
 
         return sub_indexes, summaries
     except Exception as e:
