@@ -157,7 +157,7 @@ def build_and_save_hierarchical_index():
 
     # --- 5. Save the Summaries Metadata File ---
     print(f"\n--- Saving Summaries Metadata ---")
-    with open(SUMMARIES_FILE, "w") as f:
+    with open(SUMMARIES_FILE, "w", encoding="utf-8") as f:
         json.dump(chapter_summaries, f, indent=4)
     print(f"Chapter and web page summaries saved to: {SUMMARIES_FILE}")
 

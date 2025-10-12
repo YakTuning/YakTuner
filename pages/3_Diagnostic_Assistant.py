@@ -53,7 +53,7 @@ def load_hierarchical_index_data():
 
     try:
         # Load the summaries
-        with open(SUMMARIES_FILE, "r") as f:
+        with open(SUMMARIES_FILE, "r", encoding="utf-8") as f:
             summaries = json.load(f)
 
         # Load each sub-index
