@@ -86,8 +86,8 @@ def build_and_save_hierarchical_index():
 
     def get_file_metadata(file_path: str) -> dict:
         file_name = os.path.basename(file_path)
-        chapter_match = re.search(r"Chapter_([^_]+)", file_name)
-        chapter = chapter_match.group(1) if chapter_match else "Unknown"
+        # Use the filename (without extension) as the chapter identifier
+        chapter = os.path.splitext(file_name)[0]
         doc_type = "Diagram Description" if "Combined_Descriptions" in file_path else "Technical Guide"
         return {"chapter": chapter, "document_type": doc_type, "source_filename": file_name}
 
