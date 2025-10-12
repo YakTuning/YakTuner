@@ -158,7 +158,7 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 # --- Step 1: Configure API-dependent components ---
                 status.update(label="Initializing models and loading knowledge base...")
                 genai.configure(api_key=api_key)
-                embed_model = GoogleGenAIEmbedding(model_name="models/text-embedding-004")
+                embed_model = GoogleGenAIEmbedding(model_name="models/text-embedding-004", api_key=api_key)
                 llama_index.core.Settings.embed_model = embed_model
 
                 # --- Step 2: Load the index AFTER model configuration ---
