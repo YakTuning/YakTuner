@@ -13,3 +13,7 @@ google-generativeai
 faiss-cpu
 PyMuPDF
 python-dotenv
+llama-index
+llama-index-embeddings-google-genai
+llama-index-vector-stores-faiss
+trafilatura
