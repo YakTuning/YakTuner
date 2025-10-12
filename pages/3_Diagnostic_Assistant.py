@@ -60,8 +60,7 @@ def load_hierarchical_index_data():
         sub_indexes = {}
         for chapter_id in summaries.keys():
             index_dir = os.path.join(INDEX_ROOT_DIR, f"index_{chapter_id}")
-            vector_store = FaissVectorStore.from_persist_dir(index_dir)
-            storage_context = StorageContext.from_defaults(vector_store=vector_store, persist_dir=index_dir)
+            storage_context = StorageContext.from_defaults(persist_dir=index_dir)
             sub_indexes[chapter_id] = load_index_from_storage(storage_context)
 
         return sub_indexes, summaries
@@ -146,27 +145,29 @@ st.subheader("2. Ask Your Question")
 user_query = st.text_input("Enter your diagnostic question:", placeholder="e.g., What does 'combmodes_MAF' control?", key="rag_query")
 uploaded_diag_log = st.file_uploader("Upload a CSV data log (Optional)", type="csv", key="diag_log")
 
-# --- Load Base Index Data ---
-sub_indexes, summaries = load_hierarchical_index_data()
-
 # --- Main Logic Block ---
 if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width=True):
     # --- Input Validation ---
     api_key = st.session_state.get('google_api_key')
     if not api_key: st.error("Please enter your Google API Key in the sidebar.")
     elif not uploaded_bin_file: st.error("Please upload your .bin tune file.")
-    elif not sub_indexes or not summaries: st.error("Knowledge base could not be loaded. Please run the build script.")
     elif not user_query: st.warning("Please enter a question.")
     else:
         with st.status("Analyzing...", expanded=True) as status:
             try:
                 # --- Step 1: Configure API-dependent components ---
-                status.update(label="Initializing models and query engine...")
+                status.update(label="Initializing models and loading knowledge base...")
                 genai.configure(api_key=api_key)
                 embed_model = GoogleGenAIEmbedding(model_name="models/text-embedding-004")
                 llama_index.core.Settings.embed_model = embed_model
 
-                # --- Build the RouterQueryEngine ---
+                # --- Step 2: Load the index AFTER model configuration ---
+                sub_indexes, summaries = load_hierarchical_index_data()
+                if not sub_indexes or not summaries:
+                    st.error("Knowledge base could not be loaded. Please ensure the index has been built and is not corrupted.")
+                    st.stop()
+
+                # --- Step 3: Build the RouterQueryEngine ---
                 query_engine_tools = []
                 for chapter_id, sub_index in sub_indexes.items():
                     query_engine = sub_index.as_query_engine(similarity_top_k=3)
@@ -184,7 +185,7 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
 
                 model = genai.GenerativeModel(GENERATION_MODEL, tools=[get_tune_data, list_available_maps_tool])
 
-                # --- Step 2: Process Logs and Retrieve Context ---
+                # --- Step 4: Process Logs and Retrieve Context ---
                 log_data_str = ""
                 if uploaded_diag_log:
                     log_df = pd.read_csv(uploaded_diag_log, encoding='latin1')
@@ -194,7 +195,7 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 response_from_rag = query_engine.query(user_query)
                 context_str = "\n\n".join([f"Source: {node.metadata.get('source_filename', 'N/A')} | Chapter: {node.metadata.get('chapter', 'N/A')}\nContent: {node.get_content()}" for node in response_from_rag.source_nodes])
 
-                # --- Step 3: Run Chat ---
+                # --- Step 5: Run Chat ---
                 if st.session_state.diag_chat is None:
                     st.session_state.diag_chat = model.start_chat(enable_automatic_function_calling=True)
                     st.session_state.diag_chat_history = []
