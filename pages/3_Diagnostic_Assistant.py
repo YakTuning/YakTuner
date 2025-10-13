@@ -154,6 +154,7 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
     elif not user_query: st.warning("Please enter a question.")
     else:
         with st.status("Analyzing...", expanded=True) as status:
+            # This 'try' block will now correctly wrap the main logic
             try:
                 # --- Step 1: Configure API-dependent components ---
                 status.update(label="Initializing models and loading knowledge base...")
@@ -298,7 +299,10 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                         for node in response_from_rag.source_nodes:
                             st.markdown(f"**Source:** {node.metadata.get('source_filename', 'N/A')} | **Chapter:** {node.metadata.get('chapter', 'N/A')} | **Relevance:** {node.score:.2f}")
                             st.text_area("Content", node.get_content(), height=150, disabled=True, key=f"context_{node.node_id}")
+            except Exception as e:
+                st.error(f"An error occurred with the generative model: {e}")
+                st.session_state.diag_chat = None
 
-            st.subheader("3. Assistant's Thinking Process")
-            with st.expander("Show/Hide the detailed reasoning process", expanded=True):
-                render_thinking_process(st.session_state.diag_chat_history)
+        st.subheader("3. Assistant's Thinking Process")
+        with st.expander("Show/Hide the detailed reasoning process", expanded=True):
+            render_thinking_process(st.session_state.diag_chat_history)
