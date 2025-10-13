@@ -253,9 +253,7 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                         st.text_area("Content", node.get_content(), height=150, disabled=True, key=f"context_{node.node_id}")
 
             except Exception as e:
-                # The chat history now includes the prompt that caused the error
-                if st.session_state.diag_chat:
-                    st.session_state.diag_chat_history = st.session_state.diag_chat.history
+                # The manually added prompt will be preserved in st.session_state.diag_chat_history
                 st.error(f"An error occurred with the generative model: {e}")
                 st.session_state.diag_chat = None # Reset chat on failure
 
