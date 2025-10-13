@@ -236,7 +236,8 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 st.session_state.diag_chat_history = chat.history
 
                 st.markdown("#### Assistant's Answer")
-                st.info(response.text)
+                full_response_text = "".join(part.text for part in response.parts)
+                st.info(full_response_text)
                 status.update(label="Response received.", state="complete", expanded=False)
 
                 with st.expander("Show Retrieved Context from Documentation"):
