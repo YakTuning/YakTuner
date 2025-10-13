@@ -232,30 +232,72 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 {user_query}
                 '''
 
-                status.update(label="Sending request to the generative model...")
+                response = None
+                for attempt in range(3):
+                    try:
+                        status.update(label=f"Sending request to the generative model (Attempt {attempt + 1}/3)...")
 
-                # --- New: Manually construct and save the prompt before the API call ---
-                # This ensures the user's prompt is visible even if send_message() fails.
-                user_prompt_content = content_types.to_content(initial_prompt)
-                st.session_state.diag_chat_history.append(user_prompt_content)
+                        if attempt > 0:
+                            user_prompt_content = content_types.to_content(initial_prompt)
+                            st.session_state.diag_chat_history.append(user_prompt_content)
+                        else:
+                            user_prompt_content = content_types.to_content(initial_prompt)
+                            st.session_state.diag_chat_history = [user_prompt_content]
 
-                response = chat.send_message(initial_prompt)
-                st.session_state.diag_chat_history = chat.history
+                        response = chat.send_message(initial_prompt)
+                        st.session_state.diag_chat_history = chat.history
+                        break
+                    except google_exceptions.GoogleAPICallError as e:
+                        if "token limit" in str(e).lower():
+                            st.warning(f"Token limit exceeded on attempt {attempt + 1}. Downsampling log and retrying...")
+                            if 'filtered_log_df' in locals():
+                                filtered_log_df = filtered_log_df.iloc[::2, :]
+                                log_data_str = f'--- **USER-UPLOADED LOG FILE DATA:**\n{filtered_log_df.to_string()}\n---'
+                                # Reconstruct the prompt with the smaller log data
+                                initial_prompt = f'''
+                                You are an expert automotive systems engineer and a master diagnostician for ECUs.
+                                Your primary goal is to provide a comprehensive and accurate answer to the user's question by acting as a detective.
+                                **Your Process:**
+                                1.  **Analyze the user's question and the provided documentation and log file data (CONTEXT) to form an initial hypothesis.**
+                                2.  **If you need to look up a map from the tune file, you MUST use a two-step process:**
+                                    a. **First, call the `list_available_maps_tool()`** to get a dictionary of all available maps.
+                                    b. **Second, use this dictionary to find the exact `map_description` string** for the map you need to investigate.
+                                    c. **Finally, call the `get_tune_data()` tool** with the precise `map_description`.
+                                3.  **Synthesize all the evidence.** Your final answer MUST be a synthesis of information from the documentation, the log data, and the tune data.
+                                4.  **Formulate your final answer ONLY when you are confident you have a complete picture.**
+                                **Available Tools:**
+                                - `list_available_maps_tool()`: Returns a dictionary mapping map titles to their full descriptions.
+                                - `get_tune_data(map_description: str)`: Use this to look up a specific map.
+                                ---
+                                **CONTEXT FROM DOCUMENTATION:**
+                                {context_str}
+                                {log_data_str}
+                                ---
+                                **USER'S QUESTION:**
+                                {user_query}
+                                '''
+                            else:
+                                st.error("Token limit exceeded, but no log file was provided to downsample.")
+                                break
+                        else:
+                            st.error(f"An API error occurred: {e}")
+                            st.session_state.diag_chat = None
+                            break
+                    except Exception as e:
+                        st.error(f"An unexpected error occurred: {e}")
+                        st.session_state.diag_chat = None
+                        break
 
-                st.markdown("#### Assistant's Answer")
-                full_response_text = "".join(part.text for part in response.parts)
-                st.info(full_response_text)
-                status.update(label="Response received.", state="complete", expanded=False)
+                if response:
+                    st.markdown("#### Assistant's Answer")
+                    full_response_text = "".join(part.text for part in response.parts)
+                    st.info(full_response_text)
+                    status.update(label="Response received.", state="complete", expanded=False)
 
-                with st.expander("Show Retrieved Context from Documentation"):
-                    for node in response_from_rag.source_nodes:
-                        st.markdown(f"**Source:** {node.metadata.get('source_filename', 'N/A')} | **Chapter:** {node.metadata.get('chapter', 'N/A')} | **Relevance:** {node.score:.2f}")
-                        st.text_area("Content", node.get_content(), height=150, disabled=True, key=f"context_{node.node_id}")
-
-            except Exception as e:
-                # The manually added prompt will be preserved in st.session_state.diag_chat_history
-                st.error(f"An error occurred with the generative model: {e}")
-                st.session_state.diag_chat = None # Reset chat on failure
+                    with st.expander("Show Retrieved Context from Documentation"):
+                        for node in response_from_rag.source_nodes:
+                            st.markdown(f"**Source:** {node.metadata.get('source_filename', 'N/A')} | **Chapter:** {node.metadata.get('chapter', 'N/A')} | **Relevance:** {node.score:.2f}")
+                            st.text_area("Content", node.get_content(), height=150, disabled=True, key=f"context_{node.node_id}")
 
 st.subheader("3. Assistant's Thinking Process")
 with st.expander("Show/Hide the detailed reasoning process", expanded=True):
