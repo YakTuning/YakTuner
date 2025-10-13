@@ -249,7 +249,7 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                         st.session_state.diag_chat_history = chat.history
                         break
                     except google_exceptions.GoogleAPICallError as e:
-                        if "token limit" in str(e).lower():
+                        if "token count exceeds" in str(e).lower():
                             st.warning(f"Token limit exceeded on attempt {attempt + 1}. Downsampling log and retrying...")
                             if 'filtered_log_df' in locals():
                                 filtered_log_df = filtered_log_df.iloc[::2, :]
