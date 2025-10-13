@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 # --- Import Core Libraries ---
 import google.generativeai as genai
+from google.generativeai.types import content_types
 from google.api_core import exceptions as google_exceptions
 
 # --- LlamaIndex Imports ---
@@ -232,6 +233,12 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 '''
 
                 status.update(label="Sending request to the generative model...")
+
+                # --- New: Manually construct and save the prompt before the API call ---
+                # This ensures the user's prompt is visible even if send_message() fails.
+                user_prompt_content = content_types.to_content(initial_prompt)
+                st.session_state.diag_chat_history.append(user_prompt_content)
+
                 response = chat.send_message(initial_prompt)
                 st.session_state.diag_chat_history = chat.history
 
@@ -246,10 +253,11 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                         st.text_area("Content", node.get_content(), height=150, disabled=True, key=f"context_{node.node_id}")
 
             except Exception as e:
+                # The chat history now includes the prompt that caused the error
                 if st.session_state.diag_chat:
                     st.session_state.diag_chat_history = st.session_state.diag_chat.history
                 st.error(f"An error occurred with the generative model: {e}")
-                st.session_state.diag_chat = None
+                st.session_state.diag_chat = None # Reset chat on failure
 
 st.subheader("3. Assistant's Thinking Process")
 with st.expander("Show/Hide the detailed reasoning process", expanded=True):
