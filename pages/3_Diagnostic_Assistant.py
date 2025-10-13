@@ -26,6 +26,7 @@ from llama_index.core.selectors import LLMSingleSelector
 # --- Custom Module Imports ---
 from tuning_loader import read_map_by_description
 from xdf_parser import list_available_maps
+from log_filter import filter_log_data
 
 # --- Constants ---
 XDF_SUBFOLDER = "XDFs"
@@ -42,57 +43,14 @@ st.title("💡 Diagnostic Assistant")
 st.markdown("Ask a technical question about your tune, logs, or general ECU concepts. The assistant can use your uploaded `.bin` tune file for context.")
 
 # --- RAG Data Loading ---
-@st.cache_resource(show_spinner="Loading and verifying knowledge base...")
 def load_hierarchical_index_data():
     """
-    Loads all sub-indexes and summaries, with detailed debugging to find encoding errors.
+    Loads all sub-indexes and summaries from the storage directory.
     """
     if not os.path.exists(INDEX_ROOT_DIR) or not os.path.exists(SUMMARIES_FILE):
         st.warning(f"Knowledge base not found. Please run `build_rag_index.py` first.")
         return None, None
 
-    # --- DETAILED DEBUGGING BLOCK ---
-    st.info("Starting detailed verification of all index files...")
-    # 1. Verify summaries.json
-    try:
-        with open(SUMMARIES_FILE, "r", encoding="utf-8") as f:
-            json.load(f)
-        st.success(f"✅ Verified: {SUMMARIES_FILE}")
-    except Exception as e:
-        st.error(f"🔴 FAILED TO LOAD: {SUMMARIES_FILE}")
-        st.error(f"   ERROR: {e}")
-        return None, None
-
-    # 2. Verify every JSON file in each sub-index directory
-    all_verified = True
-    sub_index_dirs = [d for d in os.listdir(INDEX_ROOT_DIR) if os.path.isdir(os.path.join(INDEX_ROOT_DIR, d))]
-
-    for index_dir_name in sub_index_dirs:
-        index_path = os.path.join(INDEX_ROOT_DIR, index_dir_name)
-        # --- CORRECTED FILENAMES TO CHECK ---
-        json_files_to_check = ["docstore.json", "index_store.json", "graph_store.json", "default__vector_store.json"]
-        for fname in json_files_to_check:
-            file_path = os.path.join(index_path, fname)
-            if os.path.exists(file_path):
-                try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        json.load(f)
-                    st.success(f"✅ Verified: {file_path}")
-                except Exception as e:
-                    st.error(f"🔴 FAILED TO LOAD: {file_path}")
-                    st.error(f"   ERROR: {e}")
-                    st.error("This is the corrupted file. The build script failed to write valid UTF-8 metadata or content here.")
-                    all_verified = False
-                    break # Stop checking this directory
-        if not all_verified:
-            break # Stop checking other directories
-
-    if not all_verified:
-        return None, None
-    st.success("All index files verified successfully. Now loading into memory...")
-    # --- END DETAILED DEBUGGING BLOCK ---
-
-    # If verification passes, proceed with the original loading logic.
     try:
         with open(SUMMARIES_FILE, "r", encoding="utf-8") as f:
             summaries = json.load(f)
@@ -200,16 +158,20 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 status.update(label="Initializing models and loading knowledge base...")
                 genai.configure(api_key=api_key)
                 embed_model = GoogleGenAIEmbedding(model_name="models/text-embedding-004", api_key=api_key)
-                genai.configure(api_key=api_key)
-                embed_model = GoogleGenAIEmbedding(model_name="models/text-embedding-004", api_key=api_key)
                 llama_index.core.Settings.embed_model = embed_model
                 llama_index.core.Settings.llm = GoogleGenAI(model_name=f"models/{GENERATION_MODEL}", api_key=api_key)
 
-                # --- Step 2: Load the index AFTER model configuration ---
-                sub_indexes, summaries = load_hierarchical_index_data()
-                if not sub_indexes or not summaries:
+                # --- Step 2: Load the index from session state or disk ---
+                if 'sub_indexes' not in st.session_state or 'summaries' not in st.session_state:
+                    with st.spinner("Loading knowledge base for the first time..."):
+                        st.session_state.sub_indexes, st.session_state.summaries = load_hierarchical_index_data()
+
+                if not st.session_state.sub_indexes or not st.session_state.summaries:
                     st.error("Knowledge base could not be loaded. Please ensure the index has been built and is not corrupted.")
                     st.stop()
+
+                sub_indexes = st.session_state.sub_indexes
+                summaries = st.session_state.summaries
 
                 # --- Step 3: Build the RouterQueryEngine ---
                 query_engine_tools = []
@@ -233,7 +195,8 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                 log_data_str = ""
                 if uploaded_diag_log:
                     log_df = pd.read_csv(uploaded_diag_log, encoding='latin1')
-                    log_data_str = f'--- **USER-UPLOADED LOG FILE DATA:**\n{log_df.to_string()}\n---'
+                    filtered_log_df = filter_log_data(log_df, user_query)
+                    log_data_str = f'--- **USER-UPLOADED LOG FILE DATA:**\n{filtered_log_df.to_string()}\n---'
 
                 status.update(label="Routing query and retrieving context from knowledge base...")
                 response_from_rag = query_engine.query(user_query)
