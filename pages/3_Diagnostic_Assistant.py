@@ -299,6 +299,6 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                             st.markdown(f"**Source:** {node.metadata.get('source_filename', 'N/A')} | **Chapter:** {node.metadata.get('chapter', 'N/A')} | **Relevance:** {node.score:.2f}")
                             st.text_area("Content", node.get_content(), height=150, disabled=True, key=f"context_{node.node_id}")
 
-st.subheader("3. Assistant's Thinking Process")
-with st.expander("Show/Hide the detailed reasoning process", expanded=True):
-    render_thinking_process(st.session_state.diag_chat_history)
+            st.subheader("3. Assistant's Thinking Process")
+            with st.expander("Show/Hide the detailed reasoning process", expanded=True):
+                render_thinking_process(st.session_state.diag_chat_history)
