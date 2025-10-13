@@ -246,7 +246,8 @@ if st.button("Get Diagnostic Answer", key="get_diag_answer", use_container_width
                             st.session_state.diag_chat_history = [user_prompt_content]
 
                         response = chat.send_message(initial_prompt)
-                        st.session_state.diag_chat_history = chat.history
+                        # Manually append the model's response to our history
+                        st.session_state.diag_chat_history.append(response.candidates[0].content)
                         break
                     except google_exceptions.GoogleAPICallError as e:
                         if "token count exceeds" in str(e).lower():
