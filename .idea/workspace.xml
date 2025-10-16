@@ -5,15 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="bba38646-2e18-422a-b9e7-e49774729f0b" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.env" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Combined_Descriptions/43_FUSL-Fuel_supply.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Split_Chapters/43_FUSL-Fuel_supply.pdf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/chunks.pkl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/faiss_index.index" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/update_rag_with_websites.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tuning_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/tuning_loader.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/yaktuner_streamlit.py" beforeDir="false" afterPath="$PROJECT_DIR$/yaktuner_streamlit.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/log_filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/log_filter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,23 +47,12 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "Python.build_rag_index.executor": "Run",
-    "Python.update_rag_with_websites.executor": "Run",
-    "Python.yaktuner_streamlit.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "feature/rag-diagnostic-assistant",
+    "git-widget-placeholder": "#24 on feature/diagnostic-agent-improvements",
     "last_opened_file_path": "C:/Users/Sam/PycharmProjects/YAKtunerCONVERTED"
   }
 }]]></component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;web&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Sam/PycharmProjects/YAKtunerCONVERTED&quot;
-  }
-}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>

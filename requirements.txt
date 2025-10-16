@@ -18,3 +18,4 @@ llama-index-embeddings-google-genai
 llama-index-vector-stores-faiss
 trafilatura
 llama_index.llms.google_genai
+thefuzz

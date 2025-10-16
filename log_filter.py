@@ -199,7 +199,7 @@ def filter_log_data(df: pd.DataFrame, query: str) -> pd.DataFrame:
         st.info(f"Detected time-based query. Filtering log data around {target_time}s.")
         time_column = find_best_column_match(df.columns, 'Time')
         if time_column:
-            df = df[(df[time_column] >= target_time - 5) & (df[time_column] <= target_time + 5)]
+            df = df[(df[time_column] >= target_time - 2) & (df[time_column] <= target_time + 2)]
 
     # 2. WOT (Wide Open Throttle) filtering
     elif "pull" in query.lower() or "wot" in query.lower():
@@ -208,7 +208,7 @@ def filter_log_data(df: pd.DataFrame, query: str) -> pd.DataFrame:
         if not throttle_col:
             throttle_col = find_best_column_match(df.columns, 'TPS (Â°)')
         if throttle_col:
-            df = df[df[throttle_col] > 80]
+            df = df[df[throttle_col] > 70]
 
     # --- Column Filtering ---
     cols_to_drop = []
