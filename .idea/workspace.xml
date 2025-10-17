@@ -6,8 +6,10 @@
   <component name="ChangeListManager">
     <list default="true" id="bba38646-2e18-422a-b9e7-e49774729f0b" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/log_filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/log_filter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PID Lists/Additions/S50_additions.csv" beforeDir="false" afterPath="$PROJECT_DIR$/PID Lists/Additions/S50_additions.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_s50_imperial_yak.csv" beforeDir="false" afterPath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_s50_imperial_yak.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_s50_yak.csv" beforeDir="false" afterPath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_s50_yak.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/variables.csv" beforeDir="false" afterPath="$PROJECT_DIR$/variables.csv" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,7 +51,7 @@
   "keyToString": {
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "#24 on feature/diagnostic-agent-improvements",
+    "git-widget-placeholder": "feature/diagnostic-agent-improvements",
     "last_opened_file_path": "C:/Users/Sam/PycharmProjects/YAKtunerCONVERTED"
   }
 }]]></component>
