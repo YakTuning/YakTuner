@@ -53,18 +53,15 @@ def _process_and_filter_maf_data(log, logvars):
     fac_lam_out = df.get('FAC_LAM_OUT', 0.0)
     stft = df.get('STFT', 0.0)
 
-    fac_ltft = df.get('FAC_LTFT', 0.0)
-    add_ltft = df.get('ADD_LTFT', 0.0)
+#    fac_ltft = df.get('FAC_LTFT', 0.0)
+#    add_ltft = df.get('ADD_LTFT', 0.0)
     fac_mff_add = df.get('FAC_MFF_ADD', 0.0)
     ltft = df.get('LTFT', 0.0)
 
     # --- Construct LTFT Correction Term with Degradation ---
     ltft_correction_term = 1.0
-    if 'FAC_LTFT' in logvars and 'ADD_LTFT' in logvars:
-        ltft_correction_term = (1 + (fac_ltft + abs(fac_ltft) * add_ltft) / 100)
-    elif 'FAC_MFF_ADD' in logvars:
+    if 'FAC_MFF_ADD' in logvars:
         ltft_correction_term = (1 + fac_mff_add / 100)
-        warnings.append("Using 'FAC_MFF_ADD' as fallback for LTFT correction.")
     elif 'LTFT' in logvars:
         ltft_correction_term = (1 + ltft / 100)
         warnings.append("Using 'LTFT' as fallback for LTFT correction.")
@@ -94,7 +91,7 @@ def _process_and_filter_maf_data(log, logvars):
     # In MAF tuning, we solve for the additive correction MAF_COR_NEW.
     # The MFF part of the new correction is assumed to be 1.
     # Target_Factor = (1 + MAF_COR_NEW) * 1
-    maf_cor_new = target_factor - 1
+    maf_cor_new = (target_factor - 1)*100
     df.loc[:, 'ADD_MAF'] = maf_cor_new  # The rest of the MAF module works with 'ADD_MAF'
 
     return df, warnings
@@ -189,7 +186,7 @@ def run_maf_analysis(log, mafxaxis, mafyaxis, maftables, combmodes_MAF, logvars)
         dict: A dictionary containing all results.
     """
     print(" -> Initializing MAF analysis...")
-    params = {'confidence': 0.6} # Hardcoded parameter
+    params = {'confidence': 0.8} # Hardcoded parameter
 
     print(" -> Preparing MAF data from logs...")
     processed_log, warnings = _process_and_filter_maf_data(log, logvars)

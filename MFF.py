@@ -57,18 +57,15 @@ def _process_and_filter_mff_data(log, logvars, tuning_mode='MFF'):
     fac_lam_out = df.get('FAC_LAM_OUT', 0.0)
     stft = df.get('STFT', 0.0)
 
-    fac_ltft = df.get('FAC_LTFT', 0.0)
-    add_ltft = df.get('ADD_LTFT', 0.0)
+    #fac_ltft = df.get('FAC_LTFT', 0.0)
+    #add_ltft = df.get('ADD_LTFT', 0.0)
     fac_mff_add = df.get('FAC_MFF_ADD', 0.0)
     ltft = df.get('LTFT', 0.0)
 
     # --- Construct LTFT Correction Term with Degradation ---
     ltft_correction_term = 1.0
-    if 'FAC_LTFT' in logvars and 'ADD_LTFT' in logvars:
-        ltft_correction_term = (1 + (fac_ltft + abs(fac_ltft) * add_ltft) / 100)
-    elif 'FAC_MFF_ADD' in logvars:
+    if 'FAC_MFF_ADD' in logvars:
         ltft_correction_term = (1 + fac_mff_add / 100)
-        warnings.append("Using 'FAC_MFF_ADD' as fallback for LTFT correction.")
     elif 'LTFT' in logvars:
         ltft_correction_term = (1 + ltft / 100)
         warnings.append("Using 'LTFT' as fallback for LTFT correction.")

@@ -6,10 +6,9 @@
   <component name="ChangeListManager">
     <list default="true" id="bba38646-2e18-422a-b9e7-e49774729f0b" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PID Lists/Additions/S50_additions.csv" beforeDir="false" afterPath="$PROJECT_DIR$/PID Lists/Additions/S50_additions.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_s50_imperial_yak.csv" beforeDir="false" afterPath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_s50_imperial_yak.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_s50_yak.csv" beforeDir="false" afterPath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_s50_yak.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/variables.csv" beforeDir="false" afterPath="$PROJECT_DIR$/variables.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LPFP.py" beforeDir="false" afterPath="$PROJECT_DIR$/LPFP.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAF.py" beforeDir="false" afterPath="$PROJECT_DIR$/MAF.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MFF.py" beforeDir="false" afterPath="$PROJECT_DIR$/MFF.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -47,14 +46,14 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "feature/diagnostic-agent-improvements",
-    "last_opened_file_path": "C:/Users/Sam/PycharmProjects/YAKtunerCONVERTED"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;feature/diagnostic-agent-improvements&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Sam/PycharmProjects/YAKtunerCONVERTED&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>

@@ -150,7 +150,7 @@ def run_lpfp_analysis(log, xaxis, yaxis, old_table, logvars):
         dict: A dictionary containing all results.
     """
     print(" -> Initializing LPFP analysis...")
-    params = {'confidence': 0.8}
+    params = {'confidence': 0.5}
 
     print(" -> Preparing LPFP data from logs...")
     processed_log, warnings = _process_and_filter_lpfp_log_data(log, logvars)
