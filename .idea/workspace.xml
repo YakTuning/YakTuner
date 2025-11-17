@@ -6,21 +6,18 @@
   <component name="ChangeListManager">
     <list default="true" id="bba38646-2e18-422a-b9e7-e49774729f0b" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PID Lists/Additions/A05_additions.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/PID Lists/Additions/S50_additions.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_a05_imperial_yak.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_a05_yak.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_s50_imperial_yak.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/PID Lists/Full PID Lists/pid_list_ecu_hsl_s50_yak.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/XDFs/A05.xdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/XDFs/LB6.xdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/XDFs/O30.xdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/XDFs/S50.xdf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/XDFs/V30.xdf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/BinRead.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/KNK.py" beforeDir="false" afterPath="$PROJECT_DIR$/KNK.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LPFP.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAF.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MFF.py" beforeDir="false" afterPath="$PROJECT_DIR$/MFF.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/TTA_ATT.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WG.py" beforeDir="false" afterPath="$PROJECT_DIR$/WG.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/map_definitions.csv" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/maps_to_parse.csv" beforeDir="false" afterPath="$PROJECT_DIR$/maps_to_parse.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/variables - Copy (2).csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/variables.csv" beforeDir="false" afterPath="$PROJECT_DIR$/variables.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/variablesBU.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tuning_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/tuning_loader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/xdf_parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/xdf_parser.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/yaktuner_streamlit.py" beforeDir="false" afterPath="$PROJECT_DIR$/yaktuner_streamlit.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

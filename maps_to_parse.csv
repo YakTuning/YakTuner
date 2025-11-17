@@ -1,5 +1,12 @@
 variable_name,xdf_title
-wgpid,WGDC Base (Custom)
+wgdc_cust,WGDC Base (Custom)
+wgdc_cust_Y,WGDC Base (Custom) - Boost Target
+wgdc_cust_X,WGDC Base (Custom) - RPM
+wgdc,Wastegate Position - für Vorsteuerung
+wgdc_Y,Wastegate Position - für Vorsteuerung Y (autogen)
+wgdc_X,Wastegate Position - für Vorsteuerung X (autogen)
 igyaxis,Timing (main) Y (autogen)
 igxaxis,Timing (main) X (autogen)
 MFFtable,Fuel scalar 1
+MFFtable_Y,Fuel scalar 1 Y (autogen)
+MFFtable_X,Fuel scalar 1 X (autogen)
