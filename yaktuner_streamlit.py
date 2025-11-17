@@ -39,7 +39,7 @@ st.title("☁️ YAKtuner Online")
 # --- 1. Sidebar for Settings ---
 with st.sidebar:
     # --- FIX: Add the application logo ---
-    st.image("yaktune-website-favicon-black.png", use_column_width='auto')
+    st.image("yaktune-website-favicon-black.png", use_container_width='auto')
     # --- END FIX ---
 
     st.header("⚙️ Tuner Settings")
