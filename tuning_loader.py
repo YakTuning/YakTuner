@@ -5,7 +5,6 @@ import os
 import io
 
 from xdf_parser import parse_xdf_maps
-# --- FIX: Removed the import from BinRead as it's no longer needed ---
 
 
 def _map_xdf_type_to_numpy(data_size_bits, is_signed, endian='<'):
@@ -55,7 +54,13 @@ def _read_data_from_xdf_definitions(xdf_definitions, binary_content):
                 continue
 
             raw_data = np.frombuffer(byte_data, dtype=dtype)
-            reshaped_data = raw_data.reshape((rows, cols), order='F')
+
+            # --- FIX: Change reshape order from Fortran-style to C-style ---
+            # This corrects the table orientation by reading data in row-major order,
+            # which matches the binary file's format. 'C' is also the default.
+            reshaped_data = raw_data.reshape((rows, cols), order='C')
+            # --- END FIX ---
+
             physical_data = _apply_equation(reshaped_data, definition['equation'])
 
             if definition.get('is_axis', False):
@@ -107,5 +112,3 @@ class TuningData:
         xdf_maps_data = _read_data_from_xdf_definitions(xdf_definitions, self.binary_content)
         self.maps.update(xdf_maps_data)
         print(f"--- XDF loading complete. Loaded {len(xdf_maps_data)} maps. ---")
-
-    # --- FIX: Removed the load_from_manual_config method entirely ---

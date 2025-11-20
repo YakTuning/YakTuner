@@ -12,37 +12,38 @@ import pandas as pd
 from scipy import stats, interpolate
 import matplotlib.pyplot as plt
 
+# --- Constants ---
+WGDC_RESOLUTION = 0.001525879  # The smallest possible change in the WGDC table
+
 
 # --- Core Calculation and Filtering Functions ---
 
-def _process_and_filter_log_data(log_df, params, logvars, WGlogic, min_pedal=50.0):
+def _process_and_filter_log_data(log_df, params, logvars, WGlogic):
     """
     A pure function to prepare and filter log data without UI interactions.
     """
     warnings = []
     processed_log = log_df.copy()
 
-    # --- FIX: Assign X and Y axis variables based on WGlogic ---
-    # These columns will be used for binning and plotting later.
+    # Assign X and Y axis variables based on WGlogic
     if WGlogic:
         # Custom logic uses RPM vs PUTSP
         processed_log['wg_x_axis_var'] = processed_log['RPM']
         processed_log['wg_y_axis_var'] = processed_log['PUTSP']
     else:
-        # Standard logic uses WG_DIS vs PUTSP
+        # Standard logic uses WG_DIS vs MAF
         if 'WG_DIS' not in processed_log.columns:
             raise KeyError("Log variable 'WG_DIS' is required for standard WG logic but was not found.")
+        if 'MAF' not in processed_log.columns:
+            raise KeyError("Log variable 'MAF' is required for standard WG logic but was not found.")
         processed_log['wg_x_axis_var'] = processed_log['WG_DIS']
-        processed_log['wg_y_axis_var'] = processed_log['PUTSP']
-    # --- END FIX ---
+        processed_log['wg_y_axis_var'] = processed_log['MAF']
 
-    # Create derived values for analysis
+    # Create derived values for analysis. 'WGNEED' is the calculated ideal WGDC.
     processed_log['deltaPUT'] = processed_log['PUT'] - processed_log['PUTSP']
-    processed_log['WGNEED_uncorrected'] = processed_log['WG_Final'] - processed_log['deltaPUT'] * params['fudge']
-    processed_log['WGNEED'] = processed_log['WGNEED_uncorrected']
+    processed_log['WGNEED'] = processed_log['WG_Final'] - processed_log['deltaPUT'] * params['fudge']
 
     # Filter log data to valid conditions
-
     if 'BOOST' in logvars:
         processed_log = processed_log[processed_log['BOOST'] >= params['minboost']]
     else:
@@ -78,10 +79,9 @@ def _create_bins_and_labels(log_df, wgxaxis, wgyaxis):
     for i in range(len(wgyaxis) - 1):
         wgyedges[i + 1] = (wgyaxis[i] + wgyaxis[i + 1]) / 2
 
-    # --- FIX: Use generic axis variables for binning ---
+    # Use generic axis variables for binning
     log_df['X'] = pd.cut(log_df['wg_x_axis_var'], wgxedges, labels=False)
     log_df['Y'] = pd.cut(log_df['wg_y_axis_var'], wgyedges, labels=False)
-    # --- END FIX ---
     return log_df
 
 
@@ -90,23 +90,19 @@ def create_wg_scatter_plot(log_data, wgxaxis, wgyaxis, WGlogic):
     Creates a Matplotlib scatter plot figure of the filtered log data.
     """
     fig, ax = plt.subplots(figsize=(12, 8))
-    # --- FIX: Use generic axis variables for plotting ---
     scatter = ax.scatter(
         log_data['wg_x_axis_var'], log_data['wg_y_axis_var'], s=abs(log_data['WGNEED']),
         c=log_data['deltaPUT'], marker='o', cmap='RdBu', label='Log Data'
     )
-    # --- END FIX ---
     cbar = fig.colorbar(scatter, ax=ax)
     cbar.set_label('PUT - PUT SP (kPa)')
     ax.invert_yaxis()
-    # --- FIX: Dynamically set axis labels ---
     if WGlogic:
         ax.set_xlabel('RPM')
         ax.set_ylabel('Boost Setpoint (PUTSP)')
     else:
         ax.set_xlabel('WG Desired Position (%)')
-        ax.set_ylabel('Boost Setpoint (PUTSP)')
-    # --- END FIX ---
+        ax.set_ylabel('Mass Airflow (MAF)')
     ax.set_title('Wastegate Duty Cycle Need vs. Operating Point')
     ax.grid(True)
     ax.set_xticks(wgxaxis)
@@ -123,28 +119,30 @@ def _fit_surface(log_data, wgxaxis, wgyaxis):
     """
     if log_data.empty or len(log_data) < 3:
         return np.zeros((len(wgyaxis), len(wgxaxis)))
-    # --- FIX: Use generic axis variables for fitting ---
+
     points = log_data[['wg_x_axis_var', 'wg_y_axis_var']].values
-    # --- END FIX ---
     values = log_data['WGNEED'].values
     grid_x, grid_y = np.meshgrid(wgxaxis, wgyaxis)
     fitted_surface = interpolate.griddata(points, values, (grid_x, grid_y), method='linear')
+
     nan_mask = np.isnan(fitted_surface)
     if np.any(nan_mask):
         nearest_fill = interpolate.griddata(points, values, (grid_x[nan_mask], grid_y[nan_mask]), method='nearest')
         fitted_surface[nan_mask] = nearest_fill
+
     if np.all(np.isnan(fitted_surface)):
         return np.zeros((len(wgyaxis), len(wgxaxis)))
-    return fitted_surface / 100.0
+
+    return fitted_surface
 
 
 def _calculate_final_recommendations(log_data, blend, old_table, wgxaxis, wgyaxis):
     """
     Calculates the final recommended WG table by comparing the new fit with the old
-    table and applying confidence intervals to each cell using a predictive model.
+    table and applying confidence intervals to each cell. All calculations are
+    now performed in the 0-100 WGDC percentage scale.
     """
     final_table = old_table.copy()
-
     interp_factor = 0.5
     confidence = 0.7
 
@@ -152,20 +150,27 @@ def _calculate_final_recommendations(log_data, blend, old_table, wgxaxis, wgyaxi
         for j in range(wgyaxis.shape[0]):
             cell_data = log_data[(log_data['X'] == i) & (log_data['Y'] == j)]
             if len(cell_data) > 3:
-                mean, std_dev = stats.norm.fit(cell_data['WGNEED'])
-                surface_val_factor = blend[j, i]
-                current_val_factor = old_table[j, i]
-                target_val_factor = (surface_val_factor * interp_factor) + ((mean / 100.0) * (1 - interp_factor))
-                low_ci_factor, high_ci_factor = stats.norm.interval(
-                    confidence,
-                    loc=target_val_factor,
-                    scale=(std_dev / 100.0) if std_dev > 0 else 1e-9
-                )
-                if np.isnan(current_val_factor) or not (low_ci_factor <= current_val_factor <= high_ci_factor):
-                    final_table[j, i] = target_val_factor
+                mean_wg_need, std_dev_wg_need = stats.norm.fit(cell_data['WGNEED'])
+                surface_val = blend[j, i]
+                current_val = old_table[j, i]
 
-    final_table = np.round(final_table * 16384) / 16384
-    return final_table
+                # Blend the surface fit with the statistical mean from the logs
+                target_val = (surface_val * interp_factor) + (mean_wg_need * (1 - interp_factor))
+
+                # Calculate the confidence interval in the 0-100 scale
+                low_ci, high_ci = stats.norm.interval(
+                    confidence,
+                    loc=target_val,
+                    scale=std_dev_wg_need if std_dev_wg_need > 0 else 1e-9
+                )
+
+                # Compare the current table value against the new confidence interval
+                if np.isnan(current_val) or not (low_ci <= current_val <= high_ci):
+                    final_table[j, i] = target_val
+
+    # --- FIX: Quantize the final table to the ECU's actual resolution ---
+    # This ensures the output values are valid for the hardware.
+    return np.round(final_table / WGDC_RESOLUTION) * WGDC_RESOLUTION
 
 
 # --- Main Orchestrator Function ---
@@ -174,7 +179,9 @@ def run_wg_analysis(log_df, wgxaxis, wgyaxis, oldWG, logvars, WGlogic, show_scat
     Main orchestrator for the WG tuning process. A pure computational function.
     """
     print(" -> Initializing WG analysis...")
-    params = {'fudge': 0, 'minboost': 0}
+    # The 'fudge' factor is a gain on the boost error. A value of 2.5 is quite aggressive.
+    # A value between 0.5 and 2.0 is a more conventional starting point.
+    params = {'fudge': 1.5, 'minboost': 0}
 
     print(" -> Preparing and filtering log data...")
     processed_log, warnings = _process_and_filter_log_data(
