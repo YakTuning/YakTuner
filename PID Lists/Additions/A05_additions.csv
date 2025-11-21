@@ -1,0 +1,12 @@
+Name,Unit,Equation,Format,Address,Length,Signed,ProgMin,ProgMax,WarnMin,WarnMax,Smoothing,Enabled,Tabs,Assign To,Actual Variable Name
+FAC_LAM_OUT,%,x * 0.00152588,%01.1f,0xb000c05e,2,TRUE,-50,50,-100,100,0,TRUE,YAK,,fac_lam_out[0]
+FAC_MFF_ADD,%,x * 0.00305176,%01.1f,0xb000c072,2,TRUE,-100,100,-100,100,0,TRUE,YAK,,fac_mff_add_fac_lam_ad[0]
+I_INH,,x,%01.0f,0xd00005b8,1,FALSE,0,1,-1000,1000,0,TRUE,YAK,,lv_inh_put_ctl_i
+KNK1,°,(x - 128) / 2.66666666666667,%01.2f,0xd0017b83,1,FALSE,0,-5,-5,1,0,TRUE,YAK,,iga_knk_bas_cor[0]
+KNK2,°,(x - 128) / 2.66666666666667,%01.2f,0xd0017b84,1,FALSE,0,-5,-5,1,0,TRUE,YAK,,iga_knk_bas_cor[1]
+KNK3,°,(x - 128) / 2.66666666666667,%01.2f,0xd0017b85,1,FALSE,0,-5,-5,1,0,TRUE,YAK,,iga_knk_bas_cor[2]
+KNK4,°,(x - 128) / 2.66666666666667,%01.2f,0xd0017b86,1,FALSE,0,-5,-5,1,0,TRUE,YAK,,iga_knk_bas_cor[3]
+LAMBDA_SP,,x * 0.0000610352,%01.2f,0xb000c0bc,2,FALSE,0.75,1.25,-100,100,0,TRUE,YAK,,lamb_sp_fil_hom[0]
+MAF_COR,,x / 327.6799999999992,%01.1f,0xb000bafc,2,TRUE,-10,10,-100,100,0,TRUE,YAK,,fac_add_maf_cor_cmb
+MFF_COR,,x / 16384,%01.1f,0xb000b0ca,2,FALSE,0,2,0,2,0,TRUE,YAK,,fac_mff_bas_cus
+state_lam,,x,%01.0f,0xd0017c0f,1,FALSE,0,4,-1000,1000,0,TRUE,YAK,,state_lam[0]
