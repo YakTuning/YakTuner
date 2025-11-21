@@ -38,7 +38,7 @@ st.set_page_config(
 
 st.title("☁️ YAKtuner Online")
 
-# --- 1. Sidebar for Settings ---
+# --- 1. Sidebar Part 1: Initial Settings ---
 with st.sidebar:
     # --- FIX: Add the application logo ---
     st.image("yaktune-website-favicon-black.png", use_container_width='auto')
@@ -55,109 +55,6 @@ with st.sidebar:
                           help="Detects knock events across all cylinders and recommends ignition timing corrections for a selected base map.")
 
     st.divider()
-
-    # --- Firmware Display ---
-    st.subheader("Firmware")
-
-    # Session state initialization
-    if 'firmware_id' not in st.session_state:
-        st.session_state.firmware_id = None
-    if 'available_firmwares' not in st.session_state:
-        st.session_state.available_firmwares = []
-    if 'xdfs_fetched' not in st.session_state:
-         st.session_state.xdfs_fetched = False
-
-    firmware = st.session_state.firmware_id
-
-    if firmware:
-        st.info(f"**Active Firmware:**\n`{firmware}`")
-    else:
-        st.info("**Active Firmware:**\n`Waiting for log...`")
-
-    # Manual Override / Fallback
-    if st.checkbox("Manually Select Firmware"):
-        # Fetch available firmwares only if we haven't already
-        if not st.session_state.xdfs_fetched:
-            try:
-                with st.spinner("Fetching firmware list from GitHub..."):
-                    response = requests.get(GITHUB_REPO_API)
-                    if response.status_code == 200:
-                        contents = response.json()
-                        # Filter for directories only
-                        dirs = [item['name'] for item in contents if item['type'] == 'dir']
-                        st.session_state.available_firmwares = sorted(dirs)
-                        st.session_state.xdfs_fetched = True
-                    else:
-                         st.error(f"Failed to fetch firmware list: {response.status_code}")
-            except Exception as e:
-                 st.error(f"Error connecting to GitHub: {e}")
-
-        # Combine local XDFs with GitHub ones (deduplicate)
-        local_xdfs = []
-        if os.path.exists(XDF_SUBFOLDER):
-             local_xdfs = [f.replace('.xdf', '') for f in os.listdir(XDF_SUBFOLDER) if f.endswith('.xdf')]
-
-        all_options = sorted(list(set(local_xdfs + st.session_state.available_firmwares)))
-
-        selected_fw = st.selectbox("Select Firmware", options=all_options, index=0 if all_options else None)
-        if st.button("Set Firmware"):
-             st.session_state.firmware_id = selected_fw
-             firmware = selected_fw
-             st.rerun()
-
-    st.divider()
-
-    st.subheader("Global Settings")
-    oil_temp_unit = st.radio(
-        "Oil Temperature Unit in Log File",
-        ('F', 'C'),
-        index=0,  # Default to Fahrenheit
-        horizontal=True,
-        help="Select the unit for the 'OILTEMP' column in your log file. "
-             "If 'C' is selected, it will be converted to Fahrenheit for analysis."
-    )
-
-    st.divider()
-
-    # --- Module-Specific Settings ---
-    if run_wg:
-        st.subheader("WG Settings")
-        use_swg_logic = st.checkbox("Use Custom WGDC Logic", key="use_swg_logic",
-                                    help="Check this if your tune uses the Custom WGDC logic. This changes which maps are used for the analysis.")
-
-    if run_ign:
-        st.subheader("Ignition Settings")
-        max_adv = st.slider("Max Advance", 0.0, 2.0, 0.75, 0.25, key="max_adv",
-                            help="Set the maximum amount of timing advance to add back per knock event. A lower value is safer.")
-
-    st.divider()
-    # --- FIX: Removed the page link to the PID downloads page ---
-
-    # --- Donation Link ---
-    paypal_link = "https://www.paypal.com/donate/?hosted_button_id=MN43RKBR8AT6L"
-    st.markdown(f"""
-    <style>
-        .paypal-button {{
-            display: inline-block; padding: 8px 16px; font-size: 14px; font-weight: bold;
-            color: #ffffff !important; background-color: #0070ba; border: none; border-radius: 5px;
-            text-align: center; text-decoration: none; cursor: pointer; transition: background-color 0.3s;
-        }}
-        .paypal-button:hover {{
-            background-color: #005ea6; color: #ffffff !important; text-decoration: none;
-        }}
-    </style>
-    <div style="text-align: center; margin-top: 20px;">
-        <a href="{paypal_link}" target="_blank" class="paypal-button">☕ Support YAKtuner</a>
-    </div>
-    """, unsafe_allow_html=True)
-
-# --- 2. Main Area for File Uploads ---
-st.subheader("1. Upload Tune & Log Files")
-uploaded_bin_file = st.file_uploader("Upload .bin file", type=['bin', 'all'],
-                                     help="Upload your tune file (e.g., my_tune.bin). This contains all the maps the tool will analyze.")
-uploaded_log_files = st.file_uploader("Upload .csv log files", type=['csv'], accept_multiple_files=True,
-                                      help="Upload one or more data logs from your vehicle. The tool will combine them for analysis.")
-
 
 # --- Helper Functions ---
 
@@ -446,6 +343,149 @@ def cached_run_knk_analysis(*args, **kwargs):
     return run_knk_analysis(*args, **kwargs)
 
 
+# --- 2. Main Area for File Uploads ---
+st.subheader("1. Upload Tune & Log Files")
+uploaded_bin_file = st.file_uploader("Upload .bin file", type=['bin', 'all'],
+                                     help="Upload your tune file (e.g., my_tune.bin). This contains all the maps the tool will analyze.")
+uploaded_log_files = st.file_uploader("Upload .csv log files", type=['csv'], accept_multiple_files=True,
+                                      help="Upload one or more data logs from your vehicle. The tool will combine them for analysis.")
+
+# --- Firmware Detection Logic ---
+# Initialize session state
+if 'firmware_id' not in st.session_state:
+    st.session_state.firmware_id = None
+if 'detected_firmware' not in st.session_state:
+    st.session_state.detected_firmware = None
+if 'available_firmwares' not in st.session_state:
+    st.session_state.available_firmwares = []
+if 'xdfs_fetched' not in st.session_state:
+     st.session_state.xdfs_fetched = False
+
+# Attempt detection if logs are uploaded
+detected_fw = None
+if uploaded_log_files:
+    for log_file in uploaded_log_files:
+        detected_fw = get_firmware_from_log(log_file)
+        if detected_fw:
+            st.session_state.detected_firmware = detected_fw
+            break
+else:
+    st.session_state.detected_firmware = None # Reset if files are removed
+
+# --- Sidebar Part 2: Firmware Display & Selection ---
+with st.sidebar:
+    st.subheader("Firmware")
+
+    # Manual Override / Fallback
+    manual_mode = st.checkbox("Manually Select Firmware", key="manual_fw_selection")
+
+    active_firmware = None
+
+    if manual_mode:
+        # Fetch available firmwares only if we haven't already
+        if not st.session_state.xdfs_fetched:
+            try:
+                with st.spinner("Fetching firmware list from GitHub..."):
+                    response = requests.get(GITHUB_REPO_API)
+                    if response.status_code == 200:
+                        contents = response.json()
+                        # Filter for directories only
+                        dirs = [item['name'] for item in contents if item['type'] == 'dir']
+                        st.session_state.available_firmwares = sorted(dirs)
+                        st.session_state.xdfs_fetched = True
+                    else:
+                         st.error(f"Failed to fetch firmware list: {response.status_code}")
+            except Exception as e:
+                 st.error(f"Error connecting to GitHub: {e}")
+
+        # Combine local XDFs with GitHub ones (deduplicate)
+        local_xdfs = []
+        if os.path.exists(XDF_SUBFOLDER):
+             local_xdfs = [f.replace('.xdf', '') for f in os.listdir(XDF_SUBFOLDER) if f.endswith('.xdf')]
+
+        all_options = sorted(list(set(local_xdfs + st.session_state.available_firmwares)))
+
+        selected_fw = st.selectbox("Select Firmware", options=all_options, index=0 if all_options else None)
+        active_firmware = selected_fw
+    else:
+        # Automatic Mode
+        if st.session_state.detected_firmware:
+            active_firmware = st.session_state.detected_firmware
+        else:
+            active_firmware = None
+
+    # Update Session State
+    st.session_state.firmware_id = active_firmware
+
+    # Display Info
+    if active_firmware:
+        st.info(f"**Active Firmware:**\n`{active_firmware}`")
+        # Trigger download check immediately if active
+        local_xdf_path = os.path.join(XDF_SUBFOLDER, f"{active_firmware}.xdf")
+        if not os.path.exists(local_xdf_path):
+            with st.spinner(f"Downloading XDF for {active_firmware}..."):
+                    if download_xdf(active_firmware):
+                        st.toast(f"Downloaded XDF for {active_firmware}", icon="✅")
+                    else:
+                        st.error(f"Could not find or download XDF for firmware {active_firmware}.")
+    else:
+        st.info("**Active Firmware:**\n`Waiting for log...`")
+
+    st.divider()
+
+    # --- Sidebar Part 3: Remaining Settings ---
+    st.subheader("Global Settings")
+    oil_temp_unit = st.radio(
+        "Oil Temperature Unit in Log File",
+        ('F', 'C'),
+        index=0,  # Default to Fahrenheit
+        horizontal=True,
+        help="Select the unit for the 'OILTEMP' column in your log file. "
+             "If 'C' is selected, it will be converted to Fahrenheit for analysis."
+    )
+
+    st.divider()
+
+    # --- Module-Specific Settings (Repeated logic or separate?) ---
+    # The logic for displaying these settings was already executed in Part 1,
+    # but the 'subheader' calls were inside 'if run_wg:' blocks.
+    # We need to make sure the layout is correct.
+    # Previously:
+    #   Sidebar -> Settings -> Firmware -> Global -> Module Specific
+    # Now:
+    #   Sidebar Part 1 (Settings) -> Main -> Sidebar Part 2 (Firmware) -> Sidebar Part 3 (Global) -> Sidebar Part 4 (Module Specific)
+
+    if run_wg:
+        st.subheader("WG Settings")
+        use_swg_logic = st.checkbox("Use Custom WGDC Logic", key="use_swg_logic",
+                                    help="Check this if your tune uses the Custom WGDC logic. This changes which maps are used for the analysis.")
+
+    if run_ign:
+        st.subheader("Ignition Settings")
+        max_adv = st.slider("Max Advance", 0.0, 2.0, 0.75, 0.25, key="max_adv",
+                            help="Set the maximum amount of timing advance to add back per knock event. A lower value is safer.")
+
+    st.divider()
+
+    # --- Donation Link ---
+    paypal_link = "https://www.paypal.com/donate/?hosted_button_id=MN43RKBR8AT6L"
+    st.markdown(f"""
+    <style>
+        .paypal-button {{
+            display: inline-block; padding: 8px 16px; font-size: 14px; font-weight: bold;
+            color: #ffffff !important; background-color: #0070ba; border: none; border-radius: 5px;
+            text-align: center; text-decoration: none; cursor: pointer; transition: background-color 0.3s;
+        }}
+        .paypal-button:hover {{
+            background-color: #005ea6; color: #ffffff !important; text-decoration: none;
+        }}
+    </style>
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="{paypal_link}" target="_blank" class="paypal-button">☕ Support YAKtuner</a>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 # --- 3. Run Button and Logic ---
 st.divider()
 
@@ -465,32 +505,22 @@ if 'run_analysis' in st.session_state and st.session_state.run_analysis:
         st.session_state.run_analysis = False
     else:
         try:
-            # --- Attempt Auto-Detection of Firmware if not set ---
-            if not st.session_state.firmware_id:
-                detected_fw = None
-                for log_file in uploaded_log_files:
-                    detected_fw = get_firmware_from_log(log_file)
-                    if detected_fw:
-                        st.session_state.firmware_id = detected_fw
-                        firmware = detected_fw
-                        st.success(f"Detected Firmware: {firmware}")
-                        break
+            # Use the firmware detected/selected in the sidebar logic
+            firmware = st.session_state.firmware_id
 
-                if not detected_fw:
-                    st.error("Could not automatically detect firmware from logs. Please select it manually in the sidebar.")
-                    st.session_state.run_analysis = False
-                    st.stop()
+            if not firmware:
+                 st.error("No firmware selected or detected. Please upload a log file or select firmware manually.")
+                 st.session_state.run_analysis = False
+                 st.stop()
 
-            # Now we have a firmware ID, ensure we have the XDF
+            # Double check XDF existence (it should have been downloaded in the sidebar logic)
             local_xdf_path = os.path.join(XDF_SUBFOLDER, f"{firmware}.xdf")
             if not os.path.exists(local_xdf_path):
-                with st.spinner(f"Downloading XDF for {firmware}..."):
-                     if download_xdf(firmware):
-                         st.success(f"Downloaded XDF for {firmware}")
-                     else:
-                         st.error(f"Could not find or download XDF for firmware {firmware}. Cannot proceed.")
-                         st.session_state.run_analysis = False
-                         st.stop()
+                 # Try one last time, just in case
+                 if not download_xdf(firmware):
+                     st.error(f"Could not find or download XDF for firmware {firmware}. Cannot proceed.")
+                     st.session_state.run_analysis = False
+                     st.stop()
 
             wg_results, mff_results, knk_results = None, None, None
             all_maps_data = {}
