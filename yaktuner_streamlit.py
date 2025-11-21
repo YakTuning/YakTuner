@@ -465,7 +465,7 @@ with st.sidebar:
     if run_ign:
         st.subheader("Ignition Settings")
         max_adv = st.slider("Max Advance", 0.0, 2.0, 0.75, 0.25, key="max_adv",
-                            help="Set the maximum amount of timing advance to add back per knock event. A lower value is safer.")
+                            help="Set the maximum amount of timing advance to add if clean logs are observed. A lower value is safer.")
 
     st.divider()
 

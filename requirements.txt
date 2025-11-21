@@ -8,4 +8,5 @@ asteval==0.9.31
 gspread==5.12.4
 google-auth-oauthlib==1.2.0
 google-auth==2.29.0
-st-copy-buttonrequests
+st-copy-button
+requests
