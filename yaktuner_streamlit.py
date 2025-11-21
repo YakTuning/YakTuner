@@ -7,6 +7,7 @@ import re
 import traceback
 import sys
 import difflib
+import requests
 from st_copy_button import st_copy_button
 from io import BytesIO
 from scipy import interpolate
@@ -25,8 +26,9 @@ from error_reporter import send_to_google_sheets
 default_vars = "variables.csv"
 XDF_MAP_LIST_CSV = 'maps_to_parse.csv'
 XDF_SUBFOLDER = "XDFs"
-FIRMWARE_ID = "00005D55466408"
 LOG_METADATA_ROWS_TO_SKIP = 4
+GITHUB_REPO_API = "https://api.github.com/repos/dmacpro91/BMW-XDFs/contents/B58gen2"
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/dmacpro91/BMW-XDFs/master/B58gen2"
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -56,8 +58,52 @@ with st.sidebar:
 
     # --- Firmware Display ---
     st.subheader("Firmware")
-    st.info(f"**Active Firmware:**\n`{FIRMWARE_ID}`")
-    firmware = FIRMWARE_ID  # Hardcode the firmware for the rest of the script
+
+    # Session state initialization
+    if 'firmware_id' not in st.session_state:
+        st.session_state.firmware_id = None
+    if 'available_firmwares' not in st.session_state:
+        st.session_state.available_firmwares = []
+    if 'xdfs_fetched' not in st.session_state:
+         st.session_state.xdfs_fetched = False
+
+    firmware = st.session_state.firmware_id
+
+    if firmware:
+        st.info(f"**Active Firmware:**\n`{firmware}`")
+    else:
+        st.info("**Active Firmware:**\n`Waiting for log...`")
+
+    # Manual Override / Fallback
+    if st.checkbox("Manually Select Firmware"):
+        # Fetch available firmwares only if we haven't already
+        if not st.session_state.xdfs_fetched:
+            try:
+                with st.spinner("Fetching firmware list from GitHub..."):
+                    response = requests.get(GITHUB_REPO_API)
+                    if response.status_code == 200:
+                        contents = response.json()
+                        # Filter for directories only
+                        dirs = [item['name'] for item in contents if item['type'] == 'dir']
+                        st.session_state.available_firmwares = sorted(dirs)
+                        st.session_state.xdfs_fetched = True
+                    else:
+                         st.error(f"Failed to fetch firmware list: {response.status_code}")
+            except Exception as e:
+                 st.error(f"Error connecting to GitHub: {e}")
+
+        # Combine local XDFs with GitHub ones (deduplicate)
+        local_xdfs = []
+        if os.path.exists(XDF_SUBFOLDER):
+             local_xdfs = [f.replace('.xdf', '') for f in os.listdir(XDF_SUBFOLDER) if f.endswith('.xdf')]
+
+        all_options = sorted(list(set(local_xdfs + st.session_state.available_firmwares)))
+
+        selected_fw = st.selectbox("Select Firmware", options=all_options, index=0 if all_options else None)
+        if st.button("Set Firmware"):
+             st.session_state.firmware_id = selected_fw
+             firmware = selected_fw
+             st.rerun()
 
     st.divider()
 
@@ -114,6 +160,55 @@ uploaded_log_files = st.file_uploader("Upload .csv log files", type=['csv'], acc
 
 
 # --- Helper Functions ---
+
+def get_firmware_from_log(log_file):
+    """
+    Parses the uploaded log file to find the Ecu PRGID.
+    """
+    try:
+        # Read the first few lines to find the metadata
+        # We decode as latin1 to be safe, similar to the main read
+        content = log_file.read().decode('latin1')
+        # Reset pointer
+        log_file.seek(0)
+
+        match = re.search(r'#Ecu PRGID:\s*([A-Fa-f0-9]+)', content)
+        if match:
+             return match.group(1)
+
+        # Fallback: check for Ecu CALID if PRGID isn't there?
+        # The user specifically pointed out PRGID in the screenshot, so we stick to that primarily.
+        match = re.search(r'#Ecu CALID:\s*([A-Fa-f0-9]+)', content)
+        if match:
+             return match.group(1)
+
+        return None
+    except Exception as e:
+        print(f"Error parsing log for firmware: {e}")
+        return None
+
+def download_xdf(firmware_id):
+    """
+    Downloads the XDF for the given firmware ID from GitHub.
+    """
+    url = f"{GITHUB_RAW_BASE}/{firmware_id}/{firmware_id}.xdf"
+    local_path = os.path.join(XDF_SUBFOLDER, f"{firmware_id}.xdf")
+
+    if not os.path.exists(XDF_SUBFOLDER):
+        os.makedirs(XDF_SUBFOLDER)
+
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            with open(local_path, 'wb') as f:
+                f.write(response.content)
+            return True
+        else:
+            st.error(f"Failed to download XDF from {url} (Status: {response.status_code})")
+            return False
+    except Exception as e:
+        st.error(f"Error downloading XDF: {e}")
+        return False
 
 def display_table_with_copy_button(title: str, styled_df, raw_df: pd.DataFrame):
     """
@@ -370,6 +465,33 @@ if 'run_analysis' in st.session_state and st.session_state.run_analysis:
         st.session_state.run_analysis = False
     else:
         try:
+            # --- Attempt Auto-Detection of Firmware if not set ---
+            if not st.session_state.firmware_id:
+                detected_fw = None
+                for log_file in uploaded_log_files:
+                    detected_fw = get_firmware_from_log(log_file)
+                    if detected_fw:
+                        st.session_state.firmware_id = detected_fw
+                        firmware = detected_fw
+                        st.success(f"Detected Firmware: {firmware}")
+                        break
+
+                if not detected_fw:
+                    st.error("Could not automatically detect firmware from logs. Please select it manually in the sidebar.")
+                    st.session_state.run_analysis = False
+                    st.stop()
+
+            # Now we have a firmware ID, ensure we have the XDF
+            local_xdf_path = os.path.join(XDF_SUBFOLDER, f"{firmware}.xdf")
+            if not os.path.exists(local_xdf_path):
+                with st.spinner(f"Downloading XDF for {firmware}..."):
+                     if download_xdf(firmware):
+                         st.success(f"Downloaded XDF for {firmware}")
+                     else:
+                         st.error(f"Could not find or download XDF for firmware {firmware}. Cannot proceed.")
+                         st.session_state.run_analysis = False
+                         st.stop()
+
             wg_results, mff_results, knk_results = None, None, None
             all_maps_data = {}
 
