@@ -5,7 +5,6 @@ import os
 import io
 
 from xdf_parser import parse_xdf_maps
-from BinRead import read_maps_from_config
 
 
 def _map_xdf_type_to_numpy(data_size_bits, is_signed, endian='<'):
@@ -55,7 +54,13 @@ def _read_data_from_xdf_definitions(xdf_definitions, binary_content):
                 continue
 
             raw_data = np.frombuffer(byte_data, dtype=dtype)
-            reshaped_data = raw_data.reshape((rows, cols), order='F')
+
+            # --- FIX: Change reshape order from Fortran-style to C-style ---
+            # This corrects the table orientation by reading data in row-major order,
+            # which matches the binary file's format. 'C' is also the default.
+            reshaped_data = raw_data.reshape((rows, cols), order='C')
+            # --- END FIX ---
+
             physical_data = _apply_equation(reshaped_data, definition['equation'])
 
             if definition.get('is_axis', False):
@@ -107,31 +112,3 @@ class TuningData:
         xdf_maps_data = _read_data_from_xdf_definitions(xdf_definitions, self.binary_content)
         self.maps.update(xdf_maps_data)
         print(f"--- XDF loading complete. Loaded {len(xdf_maps_data)} maps. ---")
-
-    def load_from_manual_config(self, manual_config_csv_path, firmware_address_col, overrides=None):
-        """
-        Reads maps defined in a manual CSV configuration file using the in-memory binary content.
-        """
-        print(f"\n--- Loading maps from manual config: {os.path.basename(manual_config_csv_path)} ---")
-        if not os.path.exists(manual_config_csv_path):
-            print(f"Warning: Manual config file not found at '{manual_config_csv_path}'. Skipping manual load.")
-            return
-
-        try:
-            config_df = pd.read_csv(manual_config_csv_path)
-        except Exception as e:
-            print(f"Error reading manual config CSV '{manual_config_csv_path}': {e}")
-            return
-
-        manual_maps_data = read_maps_from_config(
-            self.binary_content, config_df, firmware_address_col, overrides
-        )
-
-        for name, data in manual_maps_data.items():
-            if name in self.maps:
-                print(f"Warning: Map '{name}' from manual config is overwriting a previously loaded map.")
-            else:
-                print(f"  [Manual] -> Successfully read and processed '{name}'.")
-            self.maps[name] = data
-
-        print(f"--- Manual loading complete. Loaded {len(manual_maps_data)} maps. ---")

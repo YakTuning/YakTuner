@@ -16,14 +16,14 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 # Set a non-interactive backend for matplotlib
 matplotlib.use('Agg')
 
+
 # --- Helper Functions ---
 
 def _prepare_knock_data(log):
     """Creates derived columns and identifies knock events in the log data."""
-    log['MAP'] = log['MAP'] * 10
-
-    # --- Identify single cylinder knock outliers for statistical analysis ---
-    all_cyl_knock = log[['KNK1', 'KNK2', 'KNK3', 'KNK4']].to_numpy()
+    # --- FIX: Analyze 6 cylinders for knock ---
+    knock_cols = [f'KNK{i}' for i in range(1, 7)]
+    all_cyl_knock = log[knock_cols].to_numpy()
     log['KNKAVG'] = np.mean(all_cyl_knock, axis=1)
 
     min_cyl_knock = np.min(all_cyl_knock, axis=1)
@@ -40,7 +40,6 @@ def _prepare_knock_data(log):
         log.loc[rows_with_outlier, 'singlecyl'] = outlier_cyl_indices + 1
 
     # --- Vectorized knock event detection ---
-    knock_cols = ['KNK1', 'KNK2', 'KNK3', 'KNK4']
     knock_decreased = log[knock_cols].diff() < 0
     log['knkoccurred'] = knock_decreased.any(axis=1)
 
@@ -50,10 +49,12 @@ def _prepare_knock_data(log):
     single_knock_cyl_idx = np.argmax(knock_decreased[knock_events_mask].to_numpy(), axis=1)
 
     log['knock_source_cyl'] = np.nan
-    log.loc[knock_events_mask & (num_knocking_cyls == 1), 'knock_source_cyl'] = single_knock_cyl_idx[num_knocking_cyls == 1] + 1
+    log.loc[knock_events_mask & (num_knocking_cyls == 1), 'knock_source_cyl'] = single_knock_cyl_idx[
+                                                                                    num_knocking_cyls == 1] + 1
     log.loc[knock_events_mask & (num_knocking_cyls > 1), 'knock_source_cyl'] = 0
 
     return log
+
 
 def _create_bins(log, igxaxis, igyaxis):
     """Discretizes log data into bins based on ignition map axes."""
@@ -61,8 +62,10 @@ def _create_bins(log, igxaxis, igyaxis):
     yedges = [0] + [(igyaxis[i] + igyaxis[i + 1]) / 2 for i in range(len(igyaxis) - 1)] + [float('inf')]
 
     log['X'] = pd.cut(log['RPM'], bins=xedges, labels=False)
-    log['Y'] = pd.cut(log['MAF'], bins=yedges, labels=False)
+    # --- FIX: Use LOAD for the Y-axis binning ---
+    log['Y'] = pd.cut(log['LOAD'], bins=yedges, labels=False)
     return log
+
 
 def _calculate_knock_correction(log, igxaxis, igyaxis, params):
     """Calculates the recommended ignition correction map based on knock data."""
@@ -89,7 +92,8 @@ def _calculate_knock_correction(log, igxaxis, igyaxis, params):
                     )
                     if high_ci < 0:
                         correction_map[j, i] = (high_ci + mean_knock_retard_during_events) / 2
-                elif knock_events.empty and igxaxis[i] > 2500 and igyaxis[j] > 700:
+                # --- FIX: Use LOAD for y-axis condition ---
+                elif knock_events.empty and igxaxis[i] > 2500 and igyaxis[j] > 70:
                     confidence_weight = min(count, max_count_for_full_advance) / max_count_for_full_advance
                     advance_amount = params['max_adv'] * confidence_weight
                     correction_map[j, i] = mean_cell_knock + advance_amount
@@ -101,6 +105,7 @@ def _calculate_knock_correction(log, igxaxis, igyaxis, params):
     final_correction = np.round(intermediate * (8 / 3)) / (8 / 3)
     return final_correction
 
+
 def create_knock_scatter_plot(log, igxaxis, igyaxis):
     """Creates a Matplotlib scatter plot figure of the knock events."""
     knock_events = log[log['knkoccurred']].copy()
@@ -109,13 +114,14 @@ def create_knock_scatter_plot(log, igxaxis, igyaxis):
         return None
 
     fig, ax = plt.subplots(figsize=(12, 8))
-    colors = ['grey', 'red', 'blue', 'green', 'purple']
+    # --- FIX: Extend colors and labels for 6 cylinders ---
+    colors = ['grey', 'red', 'blue', 'green', 'purple', 'orange', 'cyan']
     cmap = ListedColormap(colors)
-    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5]
+    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5]
     norm = BoundaryNorm(bounds, cmap.N)
 
     scatter = ax.scatter(
-        knock_events['RPM'], knock_events['MAF'],
+        knock_events['RPM'], knock_events['LOAD'],
         s=abs(knock_events['KNKAVG']) * 100,
         c=knock_events['knock_source_cyl'],
         cmap=cmap,
@@ -123,12 +129,13 @@ def create_knock_scatter_plot(log, igxaxis, igyaxis):
     )
 
     cbar = fig.colorbar(scatter, ax=ax, label='Knock Source')
-    cbar.set_ticks([0, 1, 2, 3, 4])
-    cbar.set_ticklabels(['Multiple', 'Cyl 1', 'Cyl 2', 'Cyl 3', 'Cyl 4'])
+    cbar.set_ticks([0, 1, 2, 3, 4, 5, 6])
+    cbar.set_ticklabels(['Multiple', 'Cyl 1', 'Cyl 2', 'Cyl 3', 'Cyl 4', 'Cyl 5', 'Cyl 6'])
 
     ax.invert_yaxis()
     ax.set_xlabel('RPM')
-    ax.set_ylabel('MAF')
+    # --- FIX: Update Y-axis label to Load ---
+    ax.set_ylabel('Load (%)')
     ax.set_title('Knock Events by Cylinder and Magnitude')
     ax.grid(True)
     ax.set_xticks(igxaxis)
@@ -137,17 +144,16 @@ def create_knock_scatter_plot(log, igxaxis, igyaxis):
     fig.tight_layout()
     return fig
 
+
 # --- Main Orchestrator Function ---
-def run_knk_analysis(log, igxaxis, igyaxis, IGNmaps, max_adv, map_num):
+def run_knk_analysis(log, igxaxis, igyaxis, max_adv):
     """
     Main orchestrator for the KNK tuning process. A pure computational function.
 
     Args:
         log (pd.DataFrame): The mapped log data.
         igxaxis, igyaxis (np.ndarray): The axes for the ignition tables.
-        IGNmaps (list[np.ndarray]): A list of the original ignition tables.
         max_adv (float): The maximum advance to apply, from user settings.
-        map_num (int): The index of the base map to correct.
 
     Returns:
         dict: A dictionary containing all results.
@@ -155,14 +161,6 @@ def run_knk_analysis(log, igxaxis, igyaxis, IGNmaps, max_adv, map_num):
     print(" -> Initializing KNK analysis...")
     params = {'max_adv': max_adv, 'confidence': 0.7}
     warnings = []
-
-    if map_num == 0:
-        base_ignition_map = np.zeros((len(igyaxis), len(igxaxis)))
-    elif map_num - 1 < len(IGNmaps):
-        base_ignition_map = IGNmaps[map_num - 1]
-    else:
-        warnings.append(f"Selected map index {map_num} is out of range. Using a zeroed base map.")
-        base_ignition_map = np.zeros((len(igyaxis), len(igxaxis)))
 
     print(" -> Preparing knock data from logs...")
     log = _prepare_knock_data(log)
@@ -178,18 +176,15 @@ def run_knk_analysis(log, igxaxis, igyaxis, IGNmaps, max_adv, map_num):
     print(" -> Calculating ignition correction map...")
     correction_map = _calculate_knock_correction(log, igxaxis, igyaxis, params)
 
-    recommended_map = base_ignition_map + correction_map
-
     print(" -> Preparing final results as DataFrame...")
     xlabels = [str(x) for x in igxaxis]
     ylabels = [str(y) for y in igyaxis]
-    result_df = pd.DataFrame(recommended_map, columns=xlabels, index=ylabels)
+    result_df = pd.DataFrame(correction_map, columns=xlabels, index=ylabels)
 
     print(" -> KNK analysis complete.")
     return {
         'status': 'Success',
         'warnings': warnings,
         'results_knk': result_df,
-        'scatter_plot_fig': scatter_fig,
-        'base_map': base_ignition_map
+        'scatter_plot_fig': scatter_fig
     }
